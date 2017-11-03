@@ -13,7 +13,7 @@ import { getConfig } from './utils'
 import { DIST } from './paths'
 
 // Exporting route HTML and JSON happens here. It's a big one.
-export const writeRoutesToStatic = async ({ config }) => {
+export const exportRoutes = async ({ config }) => {
   const userConfig = getConfig()
   const DocumentTemplate = config.Document || DefaultDocument
 
@@ -63,6 +63,7 @@ export const writeRoutesToStatic = async ({ config }) => {
         </InitialPropsContext>
       )
 
+      const routesList = config.routes.filter(d => d.hasGetProps).map(d => d.path)
       const renderMeta = {}
 
       // Allow extractionso of meta via config.renderToString
@@ -113,11 +114,14 @@ export const writeRoutesToStatic = async ({ config }) => {
           <script
             type="text/javascript"
             dangerouslySetInnerHTML={{
-              __html: `window.__routeData = ${JSON.stringify({
-                path: route.path,
-                initialProps,
-                siteProps,
-              })}`,
+              __html: `
+                window.__routeData = ${JSON.stringify({
+          path: route.path,
+          initialProps,
+          siteProps,
+        })};
+                window.__routesList = ${JSON.stringify(routesList)};
+              `,
             }}
           />
           <script async src={`/${appJs}`} />
@@ -199,7 +203,8 @@ export async function buildXMLandRSS ({ config }) {
   }
 }
 
-export const writeRouteComponentsToFile = async routes => {
+export const prepareRoutes = async routes => {
+  // Dynamically create the auto-routing component
   const templates = []
   routes = routes.filter(d => d.component)
   routes.forEach(route => {
@@ -285,10 +290,8 @@ export const writeRouteComponentsToFile = async routes => {
     }
   `
 
-  const filepath = path.resolve(DIST, 'react-static-routes.js')
-  await fs.remove(filepath)
-  await fs.writeFile(filepath, file)
-  const now = Date.now() / 1000
-  const then = now - 1000
-  fs.utimesSync(filepath, then, then)
+  const dynamicRoutesPath = path.resolve(DIST, 'react-static-routes.js')
+  await fs.remove(dynamicRoutesPath)
+  await fs.writeFile(dynamicRoutesPath, file)
+  fs.utimesSync(dynamicRoutesPath, Date.now() / 1000 - 5000, Date.now() / 1000 - 5000)
 }
